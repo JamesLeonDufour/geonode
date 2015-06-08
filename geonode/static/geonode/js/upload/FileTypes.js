@@ -34,12 +34,6 @@ define(['./FileType'], function (FileType) {
             main: 'kml',
             requires: ['kml']
         }),
-        GEOJSON: new FileType({
-            name: gettext('GeoJSON'),
-            format: 'vector',
-            main: 'geojson',
-            requires: ['geojson']
-        }),
         ZIP: new FileType({
             name: gettext('Zip Archives'),
             format: 'archive',

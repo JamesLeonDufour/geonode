@@ -158,9 +158,6 @@ class CommonModelApi(ModelResource):
         # Region filter
         regions = parameters.getlist("regions__name__in")
 
-        # Owner filter
-        owner = parameters.get("owner__username")
-
         # Sort order
         sort = parameters.get("order_by", "relevance")
 
@@ -255,21 +252,15 @@ class CommonModelApi(ModelResource):
                     SearchQuerySet() if sqs is None else sqs).filter_or(
                     regions_exact=region)
 
-        # filter by owner
-        if owner:
-            sqs = (
-                SearchQuerySet() if sqs is None else sqs).filter(
-                owner_exact=owner)
-
         # filter by date
         if date_start:
             sqs = (SearchQuerySet() if sqs is None else sqs).filter(
-                SQ(date__gte=date_start)
+                SQ(modified__gte=date_start)
             )
 
         if date_end:
             sqs = (SearchQuerySet() if sqs is None else sqs).filter(
-                SQ(date__lte=date_end)
+                SQ(modified__lte=date_end)
             )
 
         # Filter by geographic bounding box
@@ -286,10 +277,10 @@ class CommonModelApi(ModelResource):
         # Apply sort
         if sort.lower() == "-date":
             sqs = (
-                SearchQuerySet() if sqs is None else sqs).order_by("-date")
+                SearchQuerySet() if sqs is None else sqs).order_by("-modified")
         elif sort.lower() == "date":
             sqs = (
-                SearchQuerySet() if sqs is None else sqs).order_by("date")
+                SearchQuerySet() if sqs is None else sqs).order_by("modified")
         elif sort.lower() == "title":
             sqs = (SearchQuerySet() if sqs is None else sqs).order_by(
                 "title_sortable")
@@ -301,7 +292,7 @@ class CommonModelApi(ModelResource):
                 "-popular_count")
         else:
             sqs = (
-                SearchQuerySet() if sqs is None else sqs).order_by("-date")
+                SearchQuerySet() if sqs is None else sqs).order_by("-modified")
 
         return sqs
 
@@ -315,18 +306,20 @@ class CommonModelApi(ModelResource):
 
         if not settings.SKIP_PERMS_FILTER:
             # Get the list of objects the user has access to
-            filter_set = get_objects_for_user(
+            filter_set = set(
+                get_objects_for_user(
                     request.user,
                     'base.view_resourcebase'
+                )
             )
             if settings.RESOURCE_PUBLISHING:
                 filter_set = filter_set.filter(is_published=True)
 
-            filter_set_ids = filter_set.values_list('id')
+            filter_set_ids = filter_set.values('id')
             # Do the query using the filterset and the query term. Facet the
             # results
             if len(filter_set) > 0:
-                sqs = sqs.filter(id__in=filter_set_ids).facet('type').facet('subtype').facet('owner')\
+                sqs = sqs.filter(oid__in=filter_set_ids).facet('type').facet('subtype').facet('owner')\
                     .facet('keywords').facet('regions').facet('category')
             else:
                 sqs = None
@@ -377,15 +370,10 @@ class CommonModelApi(ModelResource):
                     "total_count": total_count,
                     "facets": facets,
                     },
-            'objects': map(lambda x: self.get_haystack_api_fields(x), objects),
+            'objects': map(lambda x: x.get_stored_fields(), objects),
         }
         self.log_throttled_access(request)
         return self.create_response(request, object_list)
-
-    def get_haystack_api_fields(self, haystack_object):
-        object_fields = dict((k, v) for k, v in haystack_object.get_stored_fields().items()
-                             if not re.search('_exact$|_sortable$', k))
-        return object_fields
 
     def get_list(self, request, **kwargs):
         """

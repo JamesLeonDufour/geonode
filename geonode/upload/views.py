@@ -522,7 +522,6 @@ _pages = {
     'tif': ('time', 'run', 'final'),
     'kml': ('run', 'final'),
     'csv': ('csv', 'time', 'run', 'final'),
-    'geojson': ('run', 'final')
 }
 
 if not _ALLOW_TIME_STEP:
